@@ -1,0 +1,26 @@
+# .github/workflows/scraper.yml
+name: Daily Sales Scraper
+on:
+  schedule:
+    - cron: '0 0 * * *'    # KST 09:00
+    - cron: '0 1 * * *'    # KST 10:00
+    - cron: '0 2 * * *'    # KST 11:00
+    - cron: '0 4 * * *'    # KST 13:00
+    - cron: '0 5 * * *'    # KST 14:00
+    - cron: '0 6 * * *'    # KST 15:00
+    - cron: '0 7 * * *'    # KST 16:00
+    - cron: '30 7 * * *'   # KST 16:30
+    - cron: '0 9 * * *'    # KST 18:00
+  workflow_dispatch:
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - env:
+          FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
+        run: python scraper.py

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>오늘의 통합 매출 현황</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; padding: 20px; background-color: #f4f7f6; }
+        .container { max-width: 1200px; margin: auto; }
+        h1, h2 { color: #333; text-align: center; }
+        h2 { font-size: 1.2em; color: #555; margin-bottom: 30px;}
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.1); background-color: white; }
+        th, td { border: 1px solid #ddd; padding: 12px 15px; text-align: right; }
+        th { background-color: #e8f0fe; text-align: center; font-weight: 700; }
+        td:first-child { text-align: left; font-weight: bold; }
+        .status-text { font-weight: bold; text-align: center; padding: 20px; }
+        .loading { color: #0056b3; }
+        .error { color: #d9534f; }
+        tfoot tr { font-weight: bold; background-color: #e8f0fe; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>오늘의 통합 매출 현황</h1>
+        <h2 id="current-date"></h2>
+        <div id="result-container"><p class="loading">최신 매출 데이터를 불러오는 중입니다...</p></div>
+    </div>
+
+    <script>
+        // ▼▼▼ 여기에 자신의 Firebase 프로젝트 설정값을 붙여넣으세요 ▼▼▼
+const firebaseConfig = {
+  apiKey: "AIzaSyDSmmGxhj4dxYlEmFW174Gt5JJHRdCbAQc",
+  authDomain: "ilil-988c3.firebaseapp.com",
+  projectId: "ilil-988c3",
+  storageBucket: "ilil-988c3.firebasestorage.app",
+  messagingSenderId: "344368668506",
+  appId: "1:344368668506:web:a356511ea5ff3f956e9d63"
+};
+        // ▲▲▲ 여기에 자신의 Firebase 프로젝트 설정값을 붙여넣으세요 ▲▲▲
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        async function displaySalesData() {
+            const resultContainer = document.getElementById('result-container');
+            const dateEl = document.getElementById('current-date');
+            
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+            dateEl.textContent = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+
+            try {
+                const docRef = db.collection('daily_sales').doc(dateStr);
+                const doc = await docRef.get();
+
+                if (!doc.exists) {
+                    resultContainer.innerHTML = '<p class="error">아직 오늘 데이터가 수집되지 않았습니다. (매일 오전 9시에 자동 수집 시작)</p>';
+                    return;
+                }
+                
+                const data = doc.data();
+                let tableHtml = `
+                    <table>
+                        <thead><tr><th>사이트</th><th>주문건수</th><th>매출액</th><th>매입액</th><th>순익</th><th>마진(%)</th></tr></thead>
+                        <tbody>`;
+                
+                let totalOrders = 0, totalSales = 0, totalCost = 0, totalProfit = 0;
+
+                for (const siteName in data) {
+                    const siteData = data[siteName];
+                    if (siteData) {
+                        totalOrders += siteData['주문건수'];
+                        totalSales += siteData['매출액'];
+                        totalCost += siteData['매입액'];
+                        totalProfit += siteData['순익'];
+                        tableHtml += `
+                            <tr>
+                                <td>${siteName}</td>
+                                <td>${siteData['주문건수'].toLocaleString()} 건</td>
+                                <td>${siteData['매출액'].toLocaleString()} 원</td>
+                                <td>${siteData['매입액'].toLocaleString()} 원</td>
+                                <td>${siteData['순익'].toLocaleString()} 원</td>
+                                <td>${siteData['마진']}%</td>
+                            </tr>`;
+                    } else {
+                         tableHtml += `<tr><td>${siteName}</td><td colspan="5" style="text-align: center; color: red;">데이터 로딩 실패</td></tr>`;
+                    }
+                }
+                tableHtml += `</tbody><tfoot>`;
+                const overallMargin = totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : 0;
+                tableHtml += `
+                    <tr>
+                        <td style="text-align: center;">총 합계</td>
+                        <td>${totalOrders.toLocaleString()} 건</td>
+                        <td>${totalSales.toLocaleString()} 원</td>
+                        <td>${totalCost.toLocaleString()} 원</td>
+                        <td>${totalProfit.toLocaleString()} 원</td>
+                        <td>${overallMargin}%</td>
+                    </tr>
+                </tfoot></table>`;
+                resultContainer.innerHTML = tableHtml;
+
+            } catch (error) {
+                resultContainer.innerHTML = '<p class="error">데이터를 불러오는 데 실패했습니다. Firebase 설정을 확인해주세요.</p>';
+                console.error("Error fetching data:", error);
+            }
+        }
+        
+        displaySalesData();
+    </script>
+</body>
+</html>
